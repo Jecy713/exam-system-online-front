@@ -1,0 +1,153 @@
+<template>
+  <div class="exam-edit">
+    <el-card>
+      <template #header>
+        <div class="card-header">
+          <h2>编辑考试</h2>
+        </div>
+      </template>
+      
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        label-width="120px"
+      >
+        <el-form-item label="考试名称" prop="examName">
+          <el-input v-model="form.examName" placeholder="请输入考试名称" />
+        </el-form-item>
+        
+        <el-form-item label="考试描述" prop="examDescription">
+          <el-input
+            v-model="form.examDescription"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入考试描述"
+          />
+        </el-form-item>
+        
+        <el-form-item label="考试类型" prop="examType">
+          <el-select v-model="form.examType" placeholder="请选择考试类型">
+            <el-option label="单选题" :value="1" />
+            <el-option label="多选题" :value="2" />
+            <el-option label="判断题" :value="3" />
+            <el-option label="填空题" :value="4" />
+            <el-option label="简答题" :value="5" />
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item label="考试状态" prop="status">
+          <el-select v-model="form.status" placeholder="请选择状态">
+            <el-option label="未开始" :value="1" />
+            <el-option label="进行中" :value="2" />
+            <el-option label="已结束" :value="3" />
+            <el-option label="已归档" :value="4" />
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item label="开始时间" prop="startTime">
+          <el-date-picker
+            v-model="form.startTime"
+            type="datetime"
+            placeholder="选择开始时间"
+            format="YYYY-MM-DD HH:mm:ss"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%"
+          />
+        </el-form-item>
+        
+        <el-form-item label="结束时间" prop="endTime">
+          <el-date-picker
+            v-model="form.endTime"
+            type="datetime"
+            placeholder="选择结束时间"
+            format="YYYY-MM-DD HH:mm:ss"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%"
+          />
+        </el-form-item>
+        
+        <el-form-item label="考试时长(分钟)" prop="duration">
+          <el-input-number
+            v-model="form.duration"
+            :min="1"
+            placeholder="请输入考试时长"
+            style="width: 100%"
+          />
+        </el-form-item>
+        
+        <el-form-item>
+          <el-button type="primary" @click="handleSubmit" :loading="loading">
+            更新
+          </el-button>
+          <el-button @click="$router.back()">取消</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { examApi } from '@/api/exam'
+import { ElMessage } from 'element-plus'
+
+const router = useRouter()
+const route = useRoute()
+const formRef = ref()
+const loading = ref(false)
+const examId = ref(route.params.id)
+
+const form = reactive({
+  examName: '',
+  examDescription: '',
+  examType: null,
+  status: null,
+  startTime: '',
+  endTime: '',
+  duration: null
+})
+
+const rules = {
+  duration: [
+    { type: 'number', min: 1, message: '考试时长必须大于0', trigger: 'blur' }
+  ]
+}
+
+// 注意：这里应该调用获取考试详情的API，但后端没有提供
+// 实际项目中需要添加获取详情的接口
+onMounted(() => {
+  // loadExamDetail()
+})
+
+const handleSubmit = async () => {
+  if (!formRef.value) return
+  
+  await formRef.value.validate(async (valid) => {
+    if (valid) {
+      loading.value = true
+      try {
+        await examApi.updateExam(examId.value, form)
+        ElMessage.success('更新考试成功')
+        router.push('/exams')
+      } catch (error) {
+        ElMessage.error(error.response?.data || '更新失败')
+      } finally {
+        loading.value = false
+      }
+    }
+  })
+}
+</script>
+
+<style scoped>
+.exam-edit {
+  padding: 0;
+}
+
+.card-header h2 {
+  margin: 0;
+}
+</style>
+
