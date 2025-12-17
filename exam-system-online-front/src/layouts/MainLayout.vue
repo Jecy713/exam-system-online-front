@@ -9,6 +9,7 @@
           <span class="user-info">
             <el-icon><User /></el-icon>
             {{ authStore.userInfo?.username || '用户' }}
+            <span class="role-tag">{{ roleLabel }}</span>
             <el-icon class="el-icon--right"><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
@@ -26,6 +27,11 @@
           router
           class="sidebar-menu"
         >
+        <el-menu-item index="/dashboard">
+          <el-icon><HomeFilled /></el-icon>
+          <span>首页</span>
+        </el-menu-item>
+        <template v-if="isTeacher">
           <el-menu-item index="/exams">
             <el-icon><Document /></el-icon>
             <span>考试管理</span>
@@ -34,6 +40,13 @@
             <el-icon><QuestionFilled /></el-icon>
             <span>题目管理</span>
           </el-menu-item>
+        </template>
+        <template v-else>
+          <el-menu-item index="/student/exams">
+            <el-icon><Document /></el-icon>
+            <span>考试大厅</span>
+          </el-menu-item>
+        </template>
         </el-menu>
       </el-aside>
       <el-main class="main-content">
@@ -48,15 +61,29 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessageBox } from 'element-plus'
-import { User, ArrowDown, Document, QuestionFilled } from '@element-plus/icons-vue'
+import { User, ArrowDown, Document, QuestionFilled, HomeFilled } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
+const isTeacher = computed(() => {
+  const role = authStore.userInfo?.userRole ?? 1
+  return role === 2 || role === 3
+})
+
+const roleLabel = computed(() => {
+  const role = authStore.userInfo?.userRole ?? 1
+  if (role === 3) return '管理员'
+  if (role === 2) return '教师'
+  return '学生'
+})
+
 const activeMenu = computed(() => {
+  if (route.path === '/dashboard' || route.path === '/') return '/dashboard'
   if (route.path.startsWith('/exams')) return '/exams'
   if (route.path.startsWith('/questions')) return '/questions'
+  if (route.path.startsWith('/student/exams')) return '/student/exams'
   return route.path
 })
 

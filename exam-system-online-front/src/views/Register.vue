@@ -38,6 +38,13 @@
             show-password
           />
         </el-form-item>
+        <el-form-item label="身份" prop="userRole">
+          <el-select v-model="form.userRole" placeholder="请选择身份">
+            <el-option label="学生" :value="1" />
+            <el-option label="教师" :value="2" />
+            <el-option label="管理员" :value="3" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleRegister" :loading="loading" style="width: 100%">
             注册
@@ -69,7 +76,8 @@ const loading = ref(false)
 const form = reactive({
   username: '',
   userpassword: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  userRole: 1
 })
 
 const validateConfirmPassword = (rule, value, callback) => {
@@ -92,6 +100,9 @@ const rules = {
   confirmPassword: [
     { required: true, message: '请再次输入密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
+  ],
+  userRole: [
+    { required: true, message: '请选择身份', trigger: 'change' }
   ]
 }
 
@@ -104,7 +115,8 @@ const handleRegister = async () => {
       try {
         await authStore.register({
           username: form.username,
-          userpassword: form.userpassword
+          userpassword: form.userpassword,
+          userRole: form.userRole
         })
         router.push('/')
       } catch (error) {

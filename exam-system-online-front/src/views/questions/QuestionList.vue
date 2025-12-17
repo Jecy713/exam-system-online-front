@@ -4,8 +4,8 @@
       <h2>题目管理</h2>
       <div style="display: flex; gap: 10px;">
         <el-input
-          v-model="searchTag"
-          placeholder="输入标签搜索"
+          v-model="searchKeyword"
+          placeholder="输入关键词搜索（内容/答案/标签等）"
           style="width: 300px"
           clearable
           @keyup.enter="handleSearch"
@@ -23,7 +23,7 @@
     </div>
     
     <el-card>
-      <el-table :data="questionList" v-loading="loading" style="width: 100%">
+      <el-table :data="filteredQuestions" v-loading="loading" style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="questionCategory" label="题型" width="120">
           <template #default="{ row }">
@@ -54,7 +54,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { questionApi } from '@/api/question'
 import { ElMessage } from 'element-plus'
@@ -64,7 +64,9 @@ const router = useRouter()
 const loading = ref(false)
 const questionList = ref([])
 const searchTag = ref('')
+const searchKeyword = ref('')
 const currentPage = ref(1)
+const pageSize = ref(10)
 const total = ref(0)
 
 const getCategoryName = (category) => {
@@ -73,19 +75,22 @@ const getCategoryName = (category) => {
 }
 
 const loadQuestions = async () => {
-  if (!searchTag.value) {
-    ElMessage.warning('请输入标签进行搜索')
-    return
-  }
-  
   loading.value = true
   try {
-    const data = await questionApi.searchByTag(searchTag.value, currentPage.value)
-    questionList.value = Array.isArray(data) ? data : []
-    // 注意：后端没有返回总数，这里假设有数据
-    total.value = questionList.value.length > 0 ? questionList.value.length * 10 : 0
+    let res
+    if (searchTag.value) {
+      // 按标签搜索
+      res = await questionApi.searchByTag(searchTag.value, currentPage.value)
+    } else {
+      // 不输入标签时，加载全部题目列表
+      res = await questionApi.listQuestions(currentPage.value, pageSize.value)
+    }
+    const list = Array.isArray(res?.data) ? res.data : []
+    questionList.value = list
+    // 后端暂未提供总数，使用当前页长度近似
+    total.value = list.length
   } catch (error) {
-    ElMessage.error(error.response?.data || '搜索失败')
+    ElMessage.error(error.response?.data?.message || error.response?.data || '加载题目失败')
     questionList.value = []
   } finally {
     loading.value = false
@@ -105,8 +110,25 @@ const handleEdit = (row) => {
   router.push(`/questions/${row.id}/edit`)
 }
 
+const filteredQuestions = computed(() => {
+  const kw = searchKeyword.value.trim().toLowerCase()
+  if (!kw) return questionList.value
+  return questionList.value.filter((row) => {
+    const texts = [
+      String(row.id || ''),
+      getCategoryName(row.questionCategory || ''),
+      row.questionContent || '',
+      row.questionOptions || '',
+      row.questionAnswer || '',
+      row.questionTags || ''
+    ].join(' ').toLowerCase()
+    return texts.includes(kw)
+  })
+})
+
 onMounted(() => {
-  // 初始不加载，需要用户输入标签搜索
+  // 初始加载全部题目列表
+  loadQuestions()
 })
 </script>
 

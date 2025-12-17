@@ -11,16 +11,23 @@ export const useAuthStore = defineStore('auth', () => {
 
   const login = async (data) => {
     try {
-      const response = await authApi.login(data)
-      token.value = response.token || 'mock-token'
+      const res = await authApi.login(data)
+      // 后端返回 Result<LoginResponse> 结构：{ code, message, data: { userId, username, userRole? } }
+      if (res.code !== 200 || !res.data) {
+        throw new Error(res.message || '登录失败')
+      }
+
+      // 后端未提供 token，这里使用本地伪 token 仅作为登录态标记
+      token.value = `login-${res.data.userId}`
       userInfo.value = {
-        userId: response.userId,
-        username: response.username
+        userId: res.data.userId,
+        username: res.data.username,
+        userRole: res.data.userRole ?? 1 // 默认学生
       }
       localStorage.setItem('token', token.value)
       localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
-      ElMessage.success(response.message || '登录成功')
-      return response
+      ElMessage.success(res.message || '登录成功')
+      return res
     } catch (error) {
       throw error
     }
@@ -28,16 +35,22 @@ export const useAuthStore = defineStore('auth', () => {
 
   const register = async (data) => {
     try {
-      const response = await authApi.register(data)
-      token.value = response.token || 'mock-token'
+      const res = await authApi.register(data)
+      // 返回 Result<LoginResponse>
+      if (res.code !== 200 || !res.data) {
+        throw new Error(res.message || '注册失败')
+      }
+
+      token.value = `login-${res.data.userId}`
       userInfo.value = {
-        userId: response.userId,
-        username: response.username
+        userId: res.data.userId,
+        username: res.data.username,
+        userRole: res.data.userRole ?? 1
       }
       localStorage.setItem('token', token.value)
       localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
-      ElMessage.success(response.message || '注册成功')
-      return response
+      ElMessage.success(res.message || '注册成功')
+      return res
     } catch (error) {
       throw error
     }

@@ -28,11 +28,11 @@
         
         <el-form-item label="考试类型" prop="examType">
           <el-select v-model="form.examType" placeholder="请选择考试类型">
-            <el-option label="单选题" :value="1" />
-            <el-option label="多选题" :value="2" />
-            <el-option label="判断题" :value="3" />
-            <el-option label="填空题" :value="4" />
-            <el-option label="简答题" :value="5" />
+            <!-- 对应 exams.exam_type：1：正式 2：模拟 3：自测 4：竞赛 -->
+            <el-option label="正式考试" :value="1" />
+            <el-option label="模拟考试" :value="2" />
+            <el-option label="自测考试" :value="3" />
+            <el-option label="竞赛考试" :value="4" />
           </el-select>
         </el-form-item>
         
@@ -153,6 +153,7 @@ const handleSubmit = async () => {
       try {
         await examApi.createExam(form)
         ElMessage.success('创建考试成功')
+        // 创建成功后回到列表并触发列表刷新
         router.push('/exams')
       } catch (error) {
         ElMessage.error(error.response?.data || '创建失败')

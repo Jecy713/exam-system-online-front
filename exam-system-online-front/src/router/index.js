@@ -17,38 +17,67 @@ const routes = [
   {
     path: '/',
     component: () => import('@/layouts/MainLayout.vue'),
-    redirect: '/exams',
+    redirect: (to) => {
+      const authStore = useAuthStore()
+      const role = authStore.userInfo?.userRole ?? 1
+      return role === 1 ? '/student/exams' : '/exams'
+    },
     meta: { requiresAuth: true },
     children: [
       {
+        path: '/dashboard',
+        name: 'Dashboard',
+        component: () => import('@/views/Dashboard.vue')
+      },
+      // 教师/管理员端
+      {
         path: '/exams',
         name: 'Exams',
-        component: () => import('@/views/exams/ExamList.vue')
+        component: () => import('@/views/exams/ExamList.vue'),
+        meta: { roles: [2, 3] }
       },
       {
         path: '/exams/create',
         name: 'ExamCreate',
-        component: () => import('@/views/exams/ExamCreate.vue')
+        component: () => import('@/views/exams/ExamCreate.vue'),
+        meta: { roles: [2, 3] }
       },
       {
         path: '/exams/:id/edit',
         name: 'ExamEdit',
-        component: () => import('@/views/exams/ExamEdit.vue')
+        component: () => import('@/views/exams/ExamEdit.vue'),
+        meta: { roles: [2, 3] }
       },
       {
         path: '/questions',
         name: 'Questions',
-        component: () => import('@/views/questions/QuestionList.vue')
+        component: () => import('@/views/questions/QuestionList.vue'),
+        meta: { roles: [2, 3] }
       },
       {
         path: '/questions/create',
         name: 'QuestionCreate',
-        component: () => import('@/views/questions/QuestionCreate.vue')
+        component: () => import('@/views/questions/QuestionCreate.vue'),
+        meta: { roles: [2, 3] }
       },
       {
         path: '/questions/:id/edit',
         name: 'QuestionEdit',
-        component: () => import('@/views/questions/QuestionEdit.vue')
+        component: () => import('@/views/questions/QuestionEdit.vue'),
+        meta: { roles: [2, 3] }
+      },
+      // 学生端
+      {
+        path: '/student/exams',
+        name: 'StudentExams',
+        component: () => import('@/views/student/StudentExamList.vue'),
+        meta: { roles: [1] }
+      },
+      {
+        path: '/student/exams/:examId/take',
+        name: 'StudentExamTake',
+        component: () => import('@/views/student/StudentExamTake.vue'),
+        meta: { roles: [1] }
       }
     ]
   }
@@ -66,6 +95,15 @@ router.beforeEach((to, from, next) => {
   } else if ((to.path === '/login' || to.path === '/register') && authStore.isAuthenticated) {
     next('/')
   } else {
+    // 角色校验
+    if (to.meta?.roles && to.meta.roles.length > 0) {
+      const role = authStore.userInfo?.userRole ?? 1
+      if (!to.meta.roles.includes(role)) {
+        // 根据角色重定向
+        next(role === 1 ? '/student/exams' : '/exams')
+        return
+      }
+    }
     next()
   }
 })

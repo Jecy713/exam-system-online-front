@@ -1,6 +1,32 @@
 import request from './request'
 
 export const examApi = {
+  // 分页查询考试列表
+  listExams(params = {}) {
+    const { page = 1, size = 20 } = params
+    return request({
+      url: '/exams/list',
+      method: 'get',
+      params: { page, size }
+    })
+  },
+
+  // 获取考试详情（目前后端未提供，预留）
+  getExamDetail(examId) {
+    return request({
+      url: `/exams/${examId}`,
+      method: 'get'
+    })
+  },
+
+  // 获取考试题目列表（预留/Mock 支持）
+  getExamQuestions(examId) {
+    return request({
+      url: `/exams/${examId}/questions`,
+      method: 'get'
+    })
+  },
+  
   // 创建考试
   createExam(data) {
     return request({

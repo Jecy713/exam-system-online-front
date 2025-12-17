@@ -24,6 +24,7 @@
             <el-option label="判断题" :value="3" />
             <el-option label="填空题" :value="4" />
             <el-option label="简答题" :value="5" />
+            <el-option label="编程题" :value="6" />
           </el-select>
         </el-form-item>
         
@@ -36,7 +37,7 @@
           />
         </el-form-item>
         
-        <el-form-item label="选项" prop="questionOptions">
+        <el-form-item v-if="showOptions" label="选项" prop="questionOptions">
           <el-input
             v-model="form.questionOptions"
             type="textarea"
@@ -90,6 +91,8 @@ const form = reactive({
   questionAnswer: '',
   questionTags: ''
 })
+
+const showOptions = computed(() => form.questionCategory === 1 || form.questionCategory === 2)
 
 const rules = {
   id: [

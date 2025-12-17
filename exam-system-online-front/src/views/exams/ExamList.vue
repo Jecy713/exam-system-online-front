@@ -2,14 +2,22 @@
   <div class="exam-list">
     <div class="header-actions">
       <h2>考试管理</h2>
-      <el-button type="primary" @click="$router.push('/exams/create')">
-        <el-icon><Plus /></el-icon>
-        创建考试
-      </el-button>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="输入关键词搜索（名称/描述/类型/状态）"
+          style="width: 300px"
+          clearable
+        />
+        <el-button type="primary" @click="$router.push('/exams/create')">
+          <el-icon><Plus /></el-icon>
+          创建考试
+        </el-button>
+      </div>
     </div>
     
     <el-card>
-      <el-table :data="examList" v-loading="loading" style="width: 100%">
+      <el-table :data="filteredExams" v-loading="loading" style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="examName" label="考试名称" />
         <el-table-column prop="examDescription" label="描述" show-overflow-tooltip />
@@ -94,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { examApi } from '@/api/exam'
 import { ElMessage } from 'element-plus'
@@ -104,6 +112,9 @@ import { Plus } from '@element-plus/icons-vue'
 const router = useRouter()
 const loading = ref(false)
 const examList = ref([])
+const currentPage = ref(1)
+const pageSize = ref(10)
+const searchKeyword = ref('')
 const statusDialogVisible = ref(false)
 const currentExamId = ref(null)
 
@@ -114,14 +125,50 @@ const statusForm = ref({
   endTime: ''
 })
 
-// 注意：这里应该调用获取考试列表的API，但后端没有提供，所以使用空数组
-// 实际项目中需要添加获取列表的接口
+const filteredExams = computed(() => {
+  const kw = searchKeyword.value.trim().toLowerCase()
+  if (!kw) return examList.value
+  return examList.value.filter((row) => {
+    const texts = [
+      String(row.id || ''),
+      row.examName || '',
+      row.examDescription || '',
+      getExamTypeName(row.examType || ''),
+      getStatusName(row.status || ''),
+      row.startTime || '',
+      row.endTime || ''
+    ].join(' ').toLowerCase()
+    return texts.includes(kw)
+  })
+})
+
+const loadExams = async () => {
+  loading.value = true
+  try {
+    const res = await examApi.listExams({ page: currentPage.value, size: pageSize.value })
+    // 后端返回 Result<List<ExamResponse>>
+    const list = Array.isArray(res?.data) ? res.data : []
+    examList.value = list
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || error.response?.data || '加载考试列表失败')
+    examList.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(() => {
-  // loadExams()
+  loadExams()
 })
 
 const getExamTypeName = (type) => {
-  const types = { 1: '单选题', 2: '多选题', 3: '判断题', 4: '填空题', 5: '简答题' }
+  // 对应 exams.exam_type：1：正式 2：模拟 3：自测 4：竞赛
+  const types = {
+    1: '正式考试',
+    2: '模拟考试',
+    3: '自测考试',
+    4: '竞赛考试'
+  }
   return types[type] || '未知'
 }
 
@@ -160,7 +207,7 @@ const handleSubmitStatus = async () => {
     await examApi.updateExamStatus(currentExamId.value, statusForm.value)
     ElMessage.success('更新考试状态成功')
     statusDialogVisible.value = false
-    // loadExams()
+    loadExams()
   } catch (error) {
     ElMessage.error(error.response?.data || '更新失败')
   }
