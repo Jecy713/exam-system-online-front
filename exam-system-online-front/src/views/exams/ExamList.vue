@@ -196,8 +196,9 @@ const handleUpdateStatus = (row) => {
   statusForm.value = {
     userRole: null,
     status: row.status,
-    startTime: row.startTime,
-    endTime: row.endTime
+    // 将后端返回的时间（可能是 2025-12-18T00:00:00）统一格式化为 'YYYY-MM-DD HH:mm:ss'
+    startTime: row.startTime ? dayjs(row.startTime).format('YYYY-MM-DD HH:mm:ss') : '',
+    endTime: row.endTime ? dayjs(row.endTime).format('YYYY-MM-DD HH:mm:ss') : ''
   }
   statusDialogVisible.value = true
 }

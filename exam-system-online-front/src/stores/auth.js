@@ -12,17 +12,30 @@ export const useAuthStore = defineStore('auth', () => {
   const login = async (data) => {
     try {
       const res = await authApi.login(data)
-      // 后端返回 Result<LoginResponse> 结构：{ code, message, data: { userId, username, userRole? } }
+      // 后端返回 Result<LoginResponse> 结构：{ code, message, data: { userId, username } }
       if (res.code !== 200 || !res.data) {
         throw new Error(res.message || '登录失败')
       }
 
       // 后端未提供 token，这里使用本地伪 token 仅作为登录态标记
       token.value = `login-${res.data.userId}`
+
+      // 登录成功后，根据用户名从后端精确查询角色（学生/教师/管理员）
+      const infoRes = await authApi.getUserInfo(res.data.username)
+      if (infoRes.code !== 200 || !infoRes.data) {
+        throw new Error(infoRes.message || '获取用户信息失败')
+      }
+
+      const identity = infoRes.data.identity || '学生'
+      // 将后端 identity 映射为数值角色：1学生 2教师 3管理员
+      const roleMap = { 学生: 1, 老师: 2, 教师: 2, 管理员: 3 }
+      const userRole = roleMap[identity] ?? 1
+
       userInfo.value = {
-        userId: res.data.userId,
-        username: res.data.username,
-        userRole: res.data.userRole ?? 1 // 默认学生
+        userId: infoRes.data.userId,
+        username: infoRes.data.username,
+        userRole,
+        identity
       }
       localStorage.setItem('token', token.value)
       localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
@@ -42,10 +55,22 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       token.value = `login-${res.data.userId}`
+
+      // 注册完成后，同样通过用户名查询数据库中的角色
+      const infoRes = await authApi.getUserInfo(res.data.username)
+      if (infoRes.code !== 200 || !infoRes.data) {
+        throw new Error(infoRes.message || '获取用户信息失败')
+      }
+
+      const identity = infoRes.data.identity || '学生'
+      const roleMap = { 学生: 1, 老师: 2, 教师: 2, 管理员: 3 }
+      const userRole = roleMap[identity] ?? 1
+
       userInfo.value = {
-        userId: res.data.userId,
-        username: res.data.username,
-        userRole: res.data.userRole ?? 1
+        userId: infoRes.data.userId,
+        username: infoRes.data.username,
+        userRole,
+        identity
       }
       localStorage.setItem('token', token.value)
       localStorage.setItem('userInfo', JSON.stringify(userInfo.value))

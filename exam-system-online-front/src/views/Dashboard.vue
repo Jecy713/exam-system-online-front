@@ -225,6 +225,9 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { examApi } from '@/api/exam'
+import { questionApi } from '@/api/question'
+import { ElMessage } from 'element-plus'
 import {
   Document,
   List,
@@ -250,73 +253,42 @@ const currentTime = ref('')
 const browserInfo = ref('')
 let timeInterval = null
 
-// 统计数据
+// 统计数据（全部从后端真实接口统计）
 const stats = ref([
   {
+    key: 'examTotal',
     title: '总考试数',
-    value: '12',
-    change: '+3',
+    value: 0,
+    change: '',
     trend: 'up',
     trendIcon: ArrowUp,
     icon: Document,
     type: 'primary'
   },
   {
+    key: 'examRunning',
     title: '进行中',
-    value: '5',
-    change: '+1',
+    value: 0,
+    change: '',
     trend: 'up',
     trendIcon: ArrowUp,
     icon: Timer,
     type: 'success'
   },
   {
+    key: 'questionTotal',
     title: '总题目数',
-    value: '156',
-    change: '+12',
+    value: 0,
+    change: '',
     trend: 'up',
     trendIcon: ArrowUp,
     icon: List,
     type: 'warning'
-  },
-  {
-    title: '今日访问',
-    value: '1,234',
-    change: '+89',
-    trend: 'up',
-    trendIcon: ArrowUp,
-    icon: DataAnalysis,
-    type: 'info'
   }
 ])
 
-// 最近考试数据
-const recentExams = ref([
-  {
-    id: 1,
-    examName: '2024年春季期末考试',
-    examDescription: '包含数学、英语、计算机等科目',
-    status: 2,
-    startTime: '2024-01-15 09:00:00',
-    duration: 120
-  },
-  {
-    id: 2,
-    examName: 'JavaScript基础知识测试',
-    examDescription: '前端开发基础能力评估',
-    status: 1,
-    startTime: '2024-01-20 14:00:00',
-    duration: 90
-  },
-  {
-    id: 3,
-    examName: 'Vue.js实战考核',
-    examDescription: 'Vue框架应用能力测试',
-    status: 3,
-    startTime: '2024-01-10 10:00:00',
-    duration: 60
-  }
-])
+// 最近考试数据（从后端获取）
+const recentExams = ref([])
 
 // 更新时间
 const updateTime = () => {
@@ -355,7 +327,7 @@ const formatDate = (dateTime) => {
 }
 
 const isTeacher = computed(() => {
-  const role = authStore.userInfo?.userRole ?? 1
+  const role = authStore.userInfo?.userRole
   return role === 2 || role === 3
 })
 
@@ -367,10 +339,54 @@ const handleExamClick = (exam) => {
   }
 }
 
+// 仪表盘统计：从后端获取真实数据
+const loadDashboardData = async () => {
+  try {
+    // 获取考试列表（取前 100 条用于统计和“最近考试”展示）
+    const examRes = await examApi.listExams({ page: 1, size: 100 })
+    const exams = Array.isArray(examRes?.data) ? examRes.data : []
+
+    // 总考试数
+    const totalExams = exams.length
+    // 进行中考试数（status = 2）
+    const runningExams = exams.filter(e => e.status === 2).length
+
+    // 最近考试：按开始时间倒序，取前 5 条
+    const sorted = [...exams].sort((a, b) => {
+      const ta = a.startTime ? new Date(a.startTime).getTime() : 0
+      const tb = b.startTime ? new Date(b.startTime).getTime() : 0
+      return tb - ta
+    })
+    recentExams.value = sorted.slice(0, 5)
+
+    // 获取题目列表（同样取前 100 条用于统计）
+    const questionRes = await questionApi.listQuestions(1, 100)
+    const questions = Array.isArray(questionRes?.data) ? questionRes.data : []
+    const totalQuestions = questions.length
+
+    // 更新统计卡片数值
+    stats.value = stats.value.map((item) => {
+      if (item.key === 'examTotal') {
+        return { ...item, value: totalExams.toString() }
+      }
+      if (item.key === 'examRunning') {
+        return { ...item, value: runningExams.toString() }
+      }
+      if (item.key === 'questionTotal') {
+        return { ...item, value: totalQuestions.toString() }
+      }
+      return item
+    })
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || error.response?.data || '加载仪表盘数据失败')
+  }
+}
+
 onMounted(() => {
   updateTime()
   getBrowserInfo()
   timeInterval = setInterval(updateTime, 1000)
+  loadDashboardData()
 })
 
 onUnmounted(() => {

@@ -11,7 +11,7 @@ export const examApi = {
     })
   },
 
-  // 获取考试详情（目前后端未提供，预留）
+  // 获取考试详情（目前后端未提供 Controller，预留占位）
   getExamDetail(examId) {
     return request({
       url: `/exams/${examId}`,
@@ -19,10 +19,12 @@ export const examApi = {
     })
   },
 
-  // 获取考试题目列表（预留/Mock 支持）
+  // 获取考试题目列表（目前后端未提供 Controller，预留占位）
   getExamQuestions(examId) {
     return request({
-      url: `/exams/${examId}/questions`,
+      // 对应后端 GET /api/exams/{examId}/questions/detail
+      // 返回 ExamRandomGenerateResponse，包含 questions 列表
+      url: `/exams/${examId}/questions/detail`,
       method: 'get'
     })
   },
@@ -58,6 +60,15 @@ export const examApi = {
   addQuestions(examId, data) {
     return request({
       url: `/exams/${examId}/questions`,
+      method: 'post',
+      data
+    })
+  },
+
+  // 随机智能组卷（使用后端 /api/exams/{examId}/questions/random-generate）
+  randomGenerateQuestions(examId, data) {
+    return request({
+      url: `/exams/${examId}/questions/random-generate`,
       method: 'post',
       data
     })

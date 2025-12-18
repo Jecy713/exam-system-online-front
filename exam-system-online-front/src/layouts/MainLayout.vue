@@ -68,15 +68,16 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const isTeacher = computed(() => {
-  const role = authStore.userInfo?.userRole ?? 1
+  const role = authStore.userInfo?.userRole
   return role === 2 || role === 3
 })
 
 const roleLabel = computed(() => {
-  const role = authStore.userInfo?.userRole ?? 1
+  const role = authStore.userInfo?.userRole
   if (role === 3) return '管理员'
   if (role === 2) return '教师'
-  return '学生'
+  if (role === 1) return '学生'
+  return '未知角色'
 })
 
 const activeMenu = computed(() => {

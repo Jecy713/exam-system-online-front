@@ -105,12 +105,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
+import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { examApi } from '@/api/exam'
-import { questionApi } from '@/api/question'
 import { studentApi } from '@/api/student'
 
 const route = useRoute()
@@ -124,6 +123,7 @@ const answersMulti = reactive({})
 const answersText = reactive({})
 const loading = ref(false)
 const submitting = ref(false)
+const hasSubmitted = ref(false)
 
 const getExamTypeName = (type) => {
   const types = { 1: '正式考试', 2: '模拟考试', 3: '自测考试', 4: '竞赛考试' }
@@ -170,25 +170,20 @@ const getTextareaPlaceholder = (category) => {
 const loadData = async () => {
   loading.value = true
   try {
-    // 考试基本信息
+    // 先获取考试基础信息（名称、类型、时长等）
     const examRes = await examApi.getExamDetail(examId)
     if (examRes?.data) {
       exam.value = examRes.data
     }
-    // 优先按考试获取题目（Mock/预留）
-    let list = []
-    try {
-      const examQuestionsRes = await examApi.getExamQuestions(examId)
-      if (Array.isArray(examQuestionsRes?.data)) {
-        list = examQuestionsRes.data
-      }
-    } catch (_) {
-      // 忽略，继续用题库兜底
+
+    // 获取当前考试下的所有试卷题目（必须进入考试后才能进入本页面）
+    const examQuestionsRes = await examApi.getExamQuestions(examId)
+    if (!examQuestionsRes || examQuestionsRes.code !== 200 || !examQuestionsRes.data) {
+      throw new Error(examQuestionsRes?.message || '加载试卷题目失败')
     }
-    if (!list || list.length === 0) {
-      const qRes = await questionApi.listQuestions(1, 50)
-      list = Array.isArray(qRes?.data) ? qRes.data : []
-    }
+
+    // examQuestionsRes.data 结构为 ExamRandomGenerateResponse：{ questions, totalCount, totalScore }
+    const list = Array.isArray(examQuestionsRes.data.questions) ? examQuestionsRes.data.questions : []
     questions.value = list
   } catch (error) {
     ElMessage.error(error.response?.data?.message || error.response?.data || '加载考试数据失败')
@@ -271,6 +266,7 @@ const handleSubmit = async () => {
     const res = await studentApi.submitExam(examId, { studentId })
     if (res.code === 200) {
       ElMessage.success(res.message || '提交成功')
+      hasSubmitted.value = true
     } else {
       ElMessage.error(res.message || '提交失败')
     }
@@ -281,8 +277,70 @@ const handleSubmit = async () => {
   }
 }
 
+// 强制收卷：用于考生执意离开页面时，尽量将当前答案提交到后端
+const forceSubmit = async () => {
+  if (hasSubmitted.value) return
+  const studentId = authStore.userInfo?.userId
+  if (!studentId) return
+  try {
+    await studentApi.submitExam(examId, { studentId })
+    hasSubmitted.value = true
+  } catch (_) {
+    // 强制收卷失败时不再打断离开流程，答案可能依赖后端缓冲机制
+  }
+}
+
 onMounted(() => {
   loadData()
+})
+
+// 防止考生在未提交试卷前随意关闭/刷新页面
+const beforeUnloadHandler = (event) => {
+  if (hasSubmitted.value) return
+
+  // 尝试使用 sendBeacon 在关闭页面前强制收卷（部分浏览器支持）
+  const studentId = authStore.userInfo?.userId
+  if (studentId && navigator.sendBeacon) {
+    const payload = JSON.stringify({ studentId })
+    const blob = new Blob([payload], { type: 'application/json' })
+    navigator.sendBeacon(`/api/student/exams/${examId}/submit`, blob)
+  }
+
+  event.preventDefault()
+  event.returnValue = '当前考试尚未提交，离开页面可能导致答题记录丢失，确定要离开吗？'
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', beforeUnloadHandler)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', beforeUnloadHandler)
+})
+
+// 防止在 SPA 内部路由跳转时误离开考试页面
+onBeforeRouteLeave((to, from, next) => {
+  if (hasSubmitted.value) {
+    next()
+    return
+  }
+  ElMessageBox.confirm(
+    '当前考试尚未提交，离开页面可能导致答题记录丢失，确定要离开吗？',
+    '提示',
+    {
+      confirmButtonText: '确定离开',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  )
+    .then(async () => {
+      // 用户执意离开时，先尝试强制收卷，再跳转
+      await forceSubmit()
+      next()
+    })
+    .catch(() => {
+      next(false)
+    })
 })
 </script>
 

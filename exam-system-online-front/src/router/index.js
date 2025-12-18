@@ -19,7 +19,11 @@ const routes = [
     component: () => import('@/layouts/MainLayout.vue'),
     redirect: (to) => {
       const authStore = useAuthStore()
-      const role = authStore.userInfo?.userRole ?? 1
+      const role = authStore.userInfo?.userRole
+      if (!role) {
+        // 未识别角色时统一跳转到登录，避免误判为学生
+        return '/login'
+      }
       return role === 1 ? '/student/exams' : '/exams'
     },
     meta: { requiresAuth: true },
@@ -97,7 +101,13 @@ router.beforeEach((to, from, next) => {
   } else {
     // 角色校验
     if (to.meta?.roles && to.meta.roles.length > 0) {
-      const role = authStore.userInfo?.userRole ?? 1
+      const role = authStore.userInfo?.userRole
+      if (!role) {
+        // 没有角色信息时强制重新登录
+        authStore.logout()
+        next('/login')
+        return
+      }
       if (!to.meta.roles.includes(role)) {
         // 根据角色重定向
         next(role === 1 ? '/student/exams' : '/exams')
